@@ -41,7 +41,7 @@ using namespace std;
 
 #define HRES 		640
 #define VRES 		480
-#define NUM_OF_THREADS	2
+#define NUM_OF_THREADS	3
 
 
 /****************************VARIABLES*********************************************/
@@ -57,15 +57,11 @@ pthread_t capture_t;				//thread name for capture
 pthread_t scan_t;				//thread for scanning
 pthread_t save_t;				//thread for saving
 Mat FRAME;					//matrix for storing the image
-IplImage FRAME1;
-IplImage* frame1;
-IplImage frame[26];				//buffer for storing 26 frames
-int i=0;
-char filename[100];
 
 pthread_mutex_t mylock;				//lock to synchronize the frame variable
-sem_t semaphore1;
-sem_t semaphore2;
+sem_t A;
+sem_t B;
+sem_t C;
 
 // Transform display window
 char timg_window_name[] = "Edge Detector Transform";
@@ -94,7 +90,7 @@ void *capture1(void *arg)//capture_t will point to this
 	}
     	while(1)
     	{
-		
+	sem_wait(&A);	
 	pthread_mutex_lock(&mylock);
 	
         if(!capture.read(FRAME))
@@ -103,8 +99,8 @@ void *capture1(void *arg)//capture_t will point to this
 		break;
 	}
 
-	imshow( "Display window", FRAME );
-	//printf("hurray");
+	imshow( "Capture Thread", FRAME );
+	
 	pthread_mutex_unlock(&mylock);
 	
 	key=waitKey(1);
@@ -112,7 +108,7 @@ void *capture1(void *arg)//capture_t will point to this
 	printf("\nExiting the application");
 	break;
 	}
-
+	sem_post(&B);
     	}
 
     
@@ -124,7 +120,7 @@ void *capture1(void *arg)//capture_t will point to this
 
 
 
-void *save(void *arg)//scan_t will point to this
+void *scan(void *arg)//scan_t will point to this
 {	
 
 	printf("\nThread2");
@@ -133,12 +129,12 @@ void *save(void *arg)//scan_t will point to this
 
 	while(1)
 	{
-	//sem_wait(&semaphore2);
+	sem_wait(&B);
  	Mat gray_image;
  	
 	
 	pthread_mutex_lock(&mylock);
- 	imshow( "Gray image", FRAME );
+ 	imshow( "Scan Thread", FRAME );
 	pthread_mutex_unlock(&mylock);
 
  	key=waitKey(1);
@@ -146,10 +142,43 @@ void *save(void *arg)//scan_t will point to this
 	printf("\nExiting the application");
 	break;
 	}
-	sleep(1);
-
+	//sleep(0.09);
+	sem_post(&C);
 	}
 }
+
+
+void *save(void *arg)//save_t will point to this
+{	
+
+	printf("\nThread3");
+	char key;
+
+
+	while(1)
+	{
+	sem_wait(&C);
+ 	Mat gray_image;
+ 	
+	
+	pthread_mutex_lock(&mylock);
+ 	imshow( "Save Thread", FRAME );
+	//imwrite("Image_frame.jpeg",FRAME);
+	pthread_mutex_unlock(&mylock);
+
+ 	key=waitKey(1);
+	if(key==27){
+	printf("\nExiting the application");
+	break;
+	}
+	//sleep(1);
+	sem_post(&A);
+	}
+}
+
+
+
+
 
 
 
@@ -203,15 +232,16 @@ int main( int argc, char** argv )
 
 
 
-	sem_init(&semaphore1, 0, 0);
-        sem_init(&semaphore2, 0, 0);
+	sem_init(&A, 0, 1);
+        sem_init(&B, 0, 0);
+	sem_init(&C, 0, 0);
 
 
 	pthread_mutex_init(&mylock,NULL);
 
 	printf("\n let us begin ");
 
-	status=pthread_create(&capture_t,&rt_sched_attr[1],capture1,NULL);//creation of thread
+	status=pthread_create(&capture_t,&rt_sched_attr[0],capture1,NULL);//creation of thread
         if(status==0)
 	{
 	printf("\n Capture thread  creation successfull");
@@ -221,7 +251,17 @@ int main( int argc, char** argv )
 	
 
 	printf("\n let us create the second thread ");
-	status=pthread_create(&save_t,&rt_sched_attr[0],save,NULL);//creation of thread
+	status=pthread_create(&scan_t,&rt_sched_attr[1],scan,NULL);//creation of thread
+        if(status==0)
+	{
+	printf("\n Scan thread creation successfull");
+	}
+	else
+	printf("\n Scan thread creation unsuccessfull");
+
+	
+	printf("\n let us create the third thread ");
+	status=pthread_create(&save_t,&rt_sched_attr[2],save,NULL);//creation of thread
         if(status==0)
 	{
 	printf("\n Save thread creation successfull");
@@ -229,9 +269,9 @@ int main( int argc, char** argv )
 	else
 	printf("\n Save thread creation unsuccessfull");
 
-	
 
 	pthread_join(capture_t,NULL);
+	pthread_join(scan_t,NULL);
 	pthread_join(save_t,NULL);	
     
 };
