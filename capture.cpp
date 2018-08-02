@@ -73,10 +73,12 @@ int edgeThresh = 1;
 int ratio = 3;
 Mat canny_frame, cdst, timg_gray, timg_grad;
 
-VideoCapture capture(0);
+VideoCapture capture(-1);
 
 
+char file_name[100];
 
+char tag_number[50];
 
 
 
@@ -134,7 +136,7 @@ void *scan(void *arg)//scan_t will point to this
  	
 	
 	pthread_mutex_lock(&mylock);
- 	imshow( "Scan Thread", FRAME );
+ 	//imshow( "Scan Thread", FRAME );
 	pthread_mutex_unlock(&mylock);
 
  	key=waitKey(1);
@@ -150,7 +152,8 @@ void *scan(void *arg)//scan_t will point to this
 
 void *save(void *arg)//save_t will point to this
 {	
-
+	
+	int count=1;
 	printf("\nThread3");
 	char key;
 
@@ -162,8 +165,13 @@ void *save(void *arg)//save_t will point to this
  	
 	
 	pthread_mutex_lock(&mylock);
- 	imshow( "Save Thread", FRAME );
-	//imwrite("Image_frame.jpeg",FRAME);
+ 	//imshow( "Save Thread", FRAME );
+	strcpy(file_name,"");
+	sprintf(tag_number,"%04d",count);
+	strcat(file_name,tag_number);
+	strcat(file_name,".jpg");
+	count++;
+	imwrite(file_name,FRAME);
 	pthread_mutex_unlock(&mylock);
 
  	key=waitKey(1);
@@ -171,7 +179,7 @@ void *save(void *arg)//save_t will point to this
 	printf("\nExiting the application");
 	break;
 	}
-	//sleep(1);
+	sleep(1);
 	sem_post(&A);
 	}
 }
